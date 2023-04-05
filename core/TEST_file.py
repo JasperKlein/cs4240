@@ -7,6 +7,8 @@ from update import BasicUpdateBlock, SmallUpdateBlock
 from extractor import BasicEncoder, SmallEncoder
 from corr import CorrBlock, AlternateCorrBlock
 from utils.utils import bilinear_sampler, coords_grid, upflow8
+import multiprocessing
+import threading, queue
 
 try:
     autocast = torch.cuda.amp.autocast
@@ -22,6 +24,7 @@ except:
 
 
 class RAFT(nn.Module):
+
     def __init__(self, args):
         super(RAFT, self).__init__()
         self.args = args
@@ -31,7 +34,7 @@ class RAFT(nn.Module):
             self.context_dim = cdim = 64
             args.corr_levels = 4
             args.corr_radius = 3
-        TEST
+        
         else:
             self.hidden_dim = hdim = 128
             self.context_dim = cdim = 128
@@ -69,7 +72,10 @@ class RAFT(nn.Module):
         # optical flow computed as difference: flow = coords1 - coords0
         return coords0, coords1
 
-    def upsample_flow(self, flow, mask):
+    #queue1 = queue.Queue()
+    #queue2 = queue.Queue()
+
+    def upsample_flow(self, flow, mask, queue2):
         """ Upsample flow field [H/8, W/8, 2] -> [H, W, 2] using convex combination """
         N, _, H, W = flow.shape
         mask = mask.view(N, 1, 9, 8, 8, H, W)
@@ -80,11 +86,19 @@ class RAFT(nn.Module):
 
         up_flow = torch.sum(mask * up_flow, dim=2)
         up_flow = up_flow.permute(0, 1, 4, 2, 5, 3)
-        return up_flow.reshape(N, 2, 8*H, 8*W)
+        #return up_flow.reshape(N, 2, 8*H, 8*W).detach()
+        queue2.put((up_flow.reshape(N, 2, 8*H, 8*W).detach()))
+
+    def update_block_process(self, net, inp, corr, flow, queue1):
+        net, up_mask, delta_flow = self.update_block(net, inp, corr, flow)
+        #queue1 = queue.Queue()
+        queue1.put((net, up_mask, delta_flow))
 
 
     def forward(self, image1, image2, iters=12, flow_init=None, upsample=True, test_mode=False):
         """ Estimate optical flow between pair of frames """
+        queue1 = queue.Queue()
+        queue2 = queue.Queue()
 
         image1 = 2 * (image1 / 255.0) - 1.0
         image2 = 2 * (image2 / 255.0) - 1.0
@@ -95,10 +109,10 @@ class RAFT(nn.Module):
         hdim = self.hidden_dim
         cdim = self.context_dim
 
-        # run the feature network
+
         with autocast(enabled=self.args.mixed_precision):
-            fmap1, fmap2 = self.fnet([image1, image2])        
-        
+            fmap1, fmap2 = self.fnet([image1, image2])
+
         fmap1 = fmap1.float()
         fmap2 = fmap2.float()
         if self.args.alternate_corr:
@@ -106,12 +120,16 @@ class RAFT(nn.Module):
         else:
             corr_fn = CorrBlock(fmap1, fmap2, radius=self.args.corr_radius)
 
-        # run the context network
+
         with autocast(enabled=self.args.mixed_precision):
             cnet = self.cnet(image1)
             net, inp = torch.split(cnet, [hdim, cdim], dim=1)
             net = torch.tanh(net)
             inp = torch.relu(inp)
+
+        net = net.requires_grad_(True)  # set requires_grad to True
+        inp = inp.requires_grad_(True)  # set requires_grad to True
+
 
         coords0, coords1 = self.initialize_flow(image1)
 
@@ -119,26 +137,61 @@ class RAFT(nn.Module):
             coords1 = coords1 + flow_init
 
         flow_predictions = []
-        for itr in range(iters):
-            coords1 = coords1.detach()
-            corr = corr_fn(coords1) # index correlation volume
 
-            flow = coords1 - coords0
-            with autocast(enabled=self.args.mixed_precision):
-                net, up_mask, delta_flow = self.update_block(net, inp, corr, flow)
+        coords1 = coords1.detach()
+        corr = corr_fn(coords1)  # index correlation volume
 
-            # F(t+1) python -c "import torch; print(torch.__version__)"= F(t) + \Delta(t)
-            coords1 = coords1 + delta_flow
+        flow = coords1 - coords0
 
-            # upsample predictions
+        with autocast(enabled=self.args.mixed_precision):
+            net, up_mask, delta_flow = self.update_block(net, inp, corr, flow)
+
+        coords1 = coords1 + delta_flow
+
+        for itr in range(iters - 1):
+
+
+            queue1 = queue.Queue()
+
             if up_mask is None:
                 flow_up = upflow8(coords1 - coords0)
             else:
-                flow_up = self.upsample_flow(coords1 - coords0, up_mask)
-            
+                flow_up = threading.Thread(target=self.upsample_flow,
+                                                  args=(coords1 - coords0, up_mask, queue2))
+                flow_up.start()
+                flow_up.join()
+
+
+            coords1 = coords1.detach()
+
+            corr = corr_fn(coords1)  # index correlation volume
+
+            flow = coords1 - coords0
+
+
+            with autocast(enabled=self.args.mixed_precision):
+                p2 = threading.Thread(target=self.update_block_process, args=(net, inp, corr, flow, queue1))
+                p2.start()
+                p2.join()
+
+
+
+            net, up_mask, delta_flow = queue1.get()
+            flow_up = queue2.get()
+
+            delta_flow = delta_flow.requires_grad_(True)
+
+            coords1 = coords1.detach() + delta_flow
             flow_predictions.append(flow_up)
 
         if test_mode:
             return coords1 - coords0, flow_up
-            
+
         return flow_predictions
+
+
+
+
+
+
+
