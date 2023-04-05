@@ -49,6 +49,8 @@ class RAFT(nn.Module):
             print("Using small train")
             self.fnet = SmallEncoder(output_dim=128, norm_fn='instance', dropout=args.dropout)        
             self.cnet = SmallEncoder(output_dim=hdim+cdim, norm_fn='none', dropout=args.dropout)
+            # self.fnet = BasicEncoder(output_dim=256, norm_fn='group', dropout=args.dropout)
+            # self.cnet = BasicEncoder(output_dim=hdim+cdim, norm_fn='group', dropout=args.dropout)
             self.update_block = SmallUpdateBlock(self.args, hidden_dim=hdim)
 
         else:
