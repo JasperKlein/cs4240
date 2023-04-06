@@ -119,6 +119,9 @@ class RAFT(nn.Module):
             coords1 = coords1 + flow_init
 
         flow_predictions = []
+        up_mask_list=[]
+        flow_list=[]
+
         for itr in range(iters):
             coords1 = coords1.detach()
             corr = corr_fn(coords1) # index correlation volume
@@ -129,16 +132,27 @@ class RAFT(nn.Module):
 
             # F(t+1) = F(t) + \Delta(t)
             coords1 = coords1 + delta_flow
+            flow = coords1-coords0
 
-            # upsample predictions
-            if up_mask is None:
-                flow_up = upflow8(coords1 - coords0)
-            else:
-                flow_up = self.upsample_flow(coords1 - coords0, up_mask)
-            
-            flow_predictions.append(flow_up)
+            flow_list.append(flow)
+            up_mask_list.append(up_mask)
+
+        up_mask_stack = torch.cat(up_mask_list, dim=0)
+        flow_stack = torch.cat(flow_list, dim=0)
+
+        print(up_mask_stack.shape)
+        print(flow_stack.shape)
+
+        # upsample predictions
+        if up_mask is None:
+            flow_up = upflow8(flow_stack)
+        else:
+            flow_up = self.upsample_flow(flow_stack, up_mask_stack)
+
+        flow_predictions = torch.split(flow_up, 2, dim=0) #2 is batch_size
+        #flow_predictions.append(flow_up)
 
         if test_mode:
             return coords1 - coords0, flow_up
-            
+
         return flow_predictions
