@@ -106,7 +106,8 @@ def validate_sintel(model, iters=32, max_its=-1):
         epe_list = []
         print(f"Running {max_its} iterations!")
         for val_id in range(max_its):
-            print(f"It {val_id} of {max_its}")
+            if val_id % 25 == 0:
+                print(f"It {val_id} of {max_its}")
             image1, image2, flow_gt, _ = val_dataset[val_id]
             image1 = image1[None].cuda()
             image2 = image2[None].cuda()
@@ -183,7 +184,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     model = torch.nn.DataParallel(RAFT(args))
-    model.load_state_dict(torch.load(args.model, map_location=torch.device('cpu')))
+    model.load_state_dict(torch.load(args.model))
 
     model.cuda()
     # model.eval()
@@ -196,9 +197,14 @@ if __name__ == '__main__':
             validate_chairs(model.module)
 
         elif args.dataset == 'sintel':
-            validate_sintel(model.module, max_its=4)
+            validate_sintel(model.module)
 
         elif args.dataset == 'kitti':
+            validate_kitti(model.module)
+
+        elif args.dataset == 'fullbenchmark':
+            validate_chairs(model.module)
+            validate_sintel(model.module)
             validate_kitti(model.module)
 
 
