@@ -140,8 +140,10 @@ class BasicEncoder(nn.Module):
         self.layer2 = self._make_layer(96, stride=2)
         self.layer3 = self._make_layer(128, stride=2)
 
+        self.layer4 = self._make_layer(160, stride=2) #Added layer with again dim 32 higher than the previous, changed self.conv2 accordingly
+
         # output convolution
-        self.conv2 = nn.Conv2d(128, output_dim, kernel_size=1)
+        self.conv2 = nn.Conv2d(160, output_dim, kernel_size=1)
 
         self.dropout = None
         if dropout > 0:
@@ -180,6 +182,7 @@ class BasicEncoder(nn.Module):
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.layer3(x)
+        x = self.layer4(x) #Added
 
         x = self.conv2(x)
 
@@ -217,11 +220,13 @@ class SmallEncoder(nn.Module):
         self.layer2 = self._make_layer(64, stride=2)
         self.layer3 = self._make_layer(96, stride=2)
 
+        self.layer4 = self._make_layer(128, stride=2) #Added layer with again dim 32 higher than the previous, changed self.conv2 accordingly
+
         self.dropout = None
         if dropout > 0:
             self.dropout = nn.Dropout2d(p=dropout)
         
-        self.conv2 = nn.Conv2d(96, output_dim, kernel_size=1)
+        self.conv2 = nn.Conv2d(160, output_dim, kernel_size=1)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -256,6 +261,8 @@ class SmallEncoder(nn.Module):
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.layer3(x)
+        x = self.layer4(x) #Added
+
         x = self.conv2(x)
 
         if self.training and self.dropout is not None:
