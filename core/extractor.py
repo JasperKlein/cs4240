@@ -220,13 +220,13 @@ class SmallEncoder(nn.Module):
         self.layer2 = self._make_layer(64, stride=2)
         self.layer3 = self._make_layer(96, stride=2)
 
-        self.layer4 = self._make_layer(128, stride=2) #Added layer with again dim 32 higher than the previous, changed self.conv2 accordingly
+        self.layer4 = self._make_layer(128, stride=2) #Added layer with again dim 32 higher than the previous, changed self.conv2 accordingly [edit: fixed mistake]
 
         self.dropout = None
         if dropout > 0:
             self.dropout = nn.Dropout2d(p=dropout)
         
-        self.conv2 = nn.Conv2d(160, output_dim, kernel_size=1)
+        self.conv2 = nn.Conv2d(128, output_dim, kernel_size=1)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
