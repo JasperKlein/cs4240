@@ -13,6 +13,7 @@ import os.path as osp
 
 from utils import frame_utils
 from utils.augmentor import FlowAugmentor, SparseFlowAugmentor
+import datasets
 
 
 class FlowDataset(data.Dataset):
@@ -194,6 +195,30 @@ class HD1K(FlowDataset):
                 self.image_list += [ [images[i], images[i+1]] ]
 
             seq_ix += 1
+
+class EvalSpring(FlowDataset):
+    def __init__(self, aug_params=None, split='train', root='datasets/spring_sample/train/0013', dstype='frame_FW_left'):
+        super(EvalSpring, self).__init__(aug_params)
+
+        # @Luuk, De spring dataset lijkt dus veel op Sintel, alleen heeft sintel voor alle type input data
+        # een map met alles scenes erin, en heeft Spring een map voor elke scene met daarin mapjes voor alle type input
+        # data. Als je dit hier dus aanpast zou het direct moeten werken (verwacht) ik.
+
+        flow_root = osp.join(root, split, 'flow_FW_left')
+        image_root = osp.join(root, split, dstype)
+
+        if split == 'test':
+            self.is_test = True
+
+        for scene in os.listdir(image_root):
+            image_list = sorted(glob(osp.join(image_root, scene, '*.png')))
+            for i in range(len(image_list)-1):
+                self.image_list += [ [image_list[i], image_list[i+1]] ]
+                self.extra_info += [ (scene, i) ] # scene and frame_id
+
+            if split != 'test':
+                # En spring heeft dus .flo5 ipv .flo, maar ik denk dat dit geen problemen zou moeten opleveren
+                self.flow_list += sorted(glob(osp.join(flow_root, scene, '*.flo5')))
 
 
 def fetch_dataloader(args, TRAIN_DS='C+T+K+S+H'):

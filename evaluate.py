@@ -10,6 +10,7 @@ import torch
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 
+from core.datasets import EvalSpring
 import datasets
 
 from utils import flow_viz
@@ -134,6 +135,53 @@ def validate_sintel(model, iters=32, max_its=-1):
 
     return results
 
+@torch.no_grad()
+def validate_spring(model, iters=32, max_its=-1):
+    """ Peform validation using the Spring (train) split """
+    model.eval()
+    results = {}
+
+    # @Luuk, spring heeft dus maar een enkele set, tenzij we left en right willen doen, in dat geval zou je hier bijna
+    # bijna niets meer hoeven aanpassen
+    for dstype in ['left', 'right']:
+        val_dataset = datasets.EvalSpring(split='train', dstype=dstype)
+
+        # Ik heb dit toegevoegd om snel te kunnen checken of de evaluation runt, als je een max_its param mee geeft
+        # limit hij het aantal iteraties van de evaluation
+        if max_its < 0:
+            max_its = len(val_dataset)
+        else:
+            max_its = min(max_its, len(val_dataset))
+
+        # Ik verwacht dat je hieronder niets meer hoeft te doen
+        epe_list = []
+        print(f"Running {max_its} iterations!")
+        for val_id in range(max_its):
+            if val_id % 25 == 0:
+                print(f"It {val_id} of {max_its}")
+            image1, image2, flow_gt, _ = val_dataset[val_id]
+            image1 = image1[None].cuda()
+            image2 = image2[None].cuda()
+
+            padder = InputPadder(image1.shape)
+            image1, image2 = padder.pad(image1, image2)
+
+            flow_low, flow_pr = model(image1, image2, iters=iters, test_mode=True)
+            flow = padder.unpad(flow_pr[0]).cpu()
+
+            epe = torch.sum((flow - flow_gt)**2, dim=0).sqrt()
+            epe_list.append(epe.view(-1).numpy())
+
+        epe_all = np.concatenate(epe_list)
+        epe = np.mean(epe_all)
+        px1 = np.mean(epe_all<1)
+        px3 = np.mean(epe_all<3)
+        px5 = np.mean(epe_all<5)
+
+        print("Validation (%s) EPE: %f, 1px: %f, 3px: %f, 5px: %f" % (dstype, epe, px1, px3, px5))
+        results[dstype] = np.mean(epe_list)
+
+    return results
 
 @torch.no_grad()
 def validate_kitti(model, iters=24):
