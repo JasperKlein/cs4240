@@ -118,15 +118,15 @@ class MpiSintel(FlowDataset):
                 self.flow_list += sorted(glob(osp.join(flow_root, scene, '*.flo')))
 
 class EvalSpring(FlowDataset):
-    def __init__(self, aug_params=None, split='training', root='datasets/Spring', dstype='left'):
+    def __init__(self, aug_params=None, split='train/0001', root='datasets/spring_sample', dstype='frame_left'):
         super(EvalSpring, self).__init__(aug_params)
 
         # @Luuk, De spring dataset lijkt dus veel op Sintel, alleen heeft sintel voor alle type input data
         # een map met alles scenes erin, en heeft Spring een map voor elke scene met daarin mapjes voor alle type input
         # data. Als je dit hier dus aanpast zou het direct moeten werken (verwacht) ik.
 
-        flow_root = osp.join(root, split, 'flow')
-        image_root = osp.join(root, split)
+        flow_root = osp.join(root, split, 'flow_FW_left')
+        image_root = osp.join(root, split, dstype)
 
         if split == 'test':
             self.is_test = True

@@ -142,8 +142,8 @@ def validate_spring(model, iters=32, max_its=-1):
 
     # @Luuk, spring heeft dus maar een enkele set, tenzij we left en right willen doen, in dat geval zou je hier bijna
     # bijna niets meer hoeven aanpassen
-    for dstype in ['left', 'right']:
-        val_dataset = datasets.EvalSpring(split='training', dstype=dstype)
+    for dstype in ['frame_left']:
+        val_dataset = datasets.EvalSpring(split='train/0001', dstype=dstype)
 
         # Ik heb dit toegevoegd om snel te kunnen checken of de evaluation runt, als je een max_its param mee geeft
         # limit hij het aantal iteraties van de evaluation
