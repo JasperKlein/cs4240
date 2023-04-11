@@ -121,7 +121,7 @@ class EvalSpring(FlowDataset):
     def __init__(self, aug_params=None, split='train', root='datasets/spring_sample', dstype='0001/frame_left'):
         super(EvalSpring, self).__init__(aug_params)
 
-        # @Luuk, De spring dataset lijkt dus veel op Sintel, alleen heeft sintel voor alle type input data
+        #@Luuk, De spring dataset lijkt dus veel op Sintel, alleen heeft sintel voor alle type input data
         # een map met alles scenes erin, en heeft Spring een map voor elke scene met daarin mapjes voor alle type input
         # data. Als je dit hier dus aanpast zou het direct moeten werken (verwacht) ik.
 

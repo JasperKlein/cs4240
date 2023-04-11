@@ -140,7 +140,7 @@ def validate_spring(model, iters=32, max_its=-1):
     model.eval()
     results = {}
 
-    # @Luuk, spring heeft dus maar een enkele set, tenzij we left en right willen doen, in dat geval zou je hier bijna
+    #@Luuk, spring heeft dus maar een enkele set, tenzij we left en right willen doen, in dat geval zou je hier bijna
     # bijna niets meer hoeven aanpassen
     for dstype in ['0001/frame_left']:
         val_dataset = datasets.EvalSpring(split='train', dstype=dstype)
