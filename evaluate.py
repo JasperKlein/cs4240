@@ -1,4 +1,5 @@
 import sys
+
 sys.path.append('core')
 
 from PIL import Image
@@ -24,13 +25,13 @@ def create_sintel_submission(model, iters=32, warm_start=False, output_path='sin
     model.eval()
     for dstype in ['clean', 'final']:
         test_dataset = datasets.MpiSintel(split='test', aug_params=None, dstype=dstype)
-        
+
         flow_prev, sequence_prev = None, None
         for test_id in range(len(test_dataset)):
             image1, image2, (sequence, frame) = test_dataset[test_id]
             if sequence != sequence_prev:
                 flow_prev = None
-            
+
             padder = InputPadder(image1.shape)
             image1, image2 = padder.pad(image1[None].cuda(), image2[None].cuda())
 
@@ -39,9 +40,9 @@ def create_sintel_submission(model, iters=32, warm_start=False, output_path='sin
 
             if warm_start:
                 flow_prev = forward_interpolate(flow_low[0])[None].cuda()
-            
+
             output_dir = os.path.join(output_path, dstype, sequence)
-            output_file = os.path.join(output_dir, 'frame%04d.flo' % (frame+1))
+            output_file = os.path.join(output_dir, 'frame%04d.flo' % (frame + 1))
 
             if not os.path.exists(output_dir):
                 os.makedirs(output_dir)
@@ -60,7 +61,7 @@ def create_kitti_submission(model, iters=24, output_path='kitti_submission'):
         os.makedirs(output_path)
 
     for test_id in range(len(test_dataset)):
-        image1, image2, (frame_id, ) = test_dataset[test_id]
+        image1, image2, (frame_id,) = test_dataset[test_id]
         padder = InputPadder(image1.shape, mode='kitti')
         image1, image2 = padder.pad(image1[None].cuda(), image2[None].cuda())
 
@@ -84,7 +85,7 @@ def validate_chairs(model, iters=24):
         image2 = image2[None].cuda()
 
         _, flow_pr = model(image1, image2, iters=iters, test_mode=True)
-        epe = torch.sum((flow_pr[0].cpu() - flow_gt)**2, dim=0).sqrt()
+        epe = torch.sum((flow_pr[0].cpu() - flow_gt) ** 2, dim=0).sqrt()
         epe_list.append(epe.view(-1).numpy())
 
     epe = np.mean(np.concatenate(epe_list))
@@ -120,19 +121,20 @@ def validate_sintel(model, iters=32, max_its=-1):
             flow_low, flow_pr = model(image1, image2, iters=iters, test_mode=True)
             flow = padder.unpad(flow_pr[0]).cpu()
 
-            epe = torch.sum((flow - flow_gt)**2, dim=0).sqrt()
+            epe = torch.sum((flow - flow_gt) ** 2, dim=0).sqrt()
             epe_list.append(epe.view(-1).numpy())
 
         epe_all = np.concatenate(epe_list)
         epe = np.mean(epe_all)
-        px1 = np.mean(epe_all<1)
-        px3 = np.mean(epe_all<3)
-        px5 = np.mean(epe_all<5)
+        px1 = np.mean(epe_all < 1)
+        px3 = np.mean(epe_all < 3)
+        px5 = np.mean(epe_all < 5)
 
         print("Validation (%s) EPE: %f, 1px: %f, 3px: %f, 5px: %f" % (dstype, epe, px1, px3, px5))
         results[dstype] = np.mean(epe_list)
 
     return results
+
 
 @torch.no_grad()
 def validate_spring(model, iters=32, max_its=-1):
@@ -140,28 +142,24 @@ def validate_spring(model, iters=32, max_its=-1):
     model.eval()
     results = {}
 
-    #@Luuk, spring heeft dus maar een enkele set, tenzij we left en right willen doen, in dat geval zou je hier bijna
+    # @Luuk, spring heeft dus maar een enkele set, tenzij we left en right willen doen, in dat geval zou je hier bijna
     # bijna niets meer hoeven aanpassen
-    for dstype in ['0001/frame_left']:
-        val_dataset = datasets.EvalSpring(split='train', dstype=dstype)
-        #val_dataset = datasets.EvalSpring(dstype=dstype)
-
-        # Ik heb dit toegevoegd om snel te kunnen checken of de evaluation runt, als je een max_its param mee geeft
-        # limit hij het aantal iteraties van de evaluation
+    for dstype in ['left']:
+        val_dataset = datasets.EvalSpring(split='training', dstype=dstype)
         if max_its < 0:
             max_its = len(val_dataset)
         else:
             max_its = min(max_its, len(val_dataset))
-
-        # Ik verwacht dat je hieronder niets meer hoeft te doen
         epe_list = []
         print(f"Running {max_its} iterations!")
         for val_id in range(max_its):
             if val_id % 25 == 0:
                 print(f"It {val_id} of {max_its}")
             image1, image2, flow_gt, _ = val_dataset[val_id]
-            image1 = image1[None].cuda()
-            image2 = image2[None].cuda()
+            # image1 = image1[None].cuda()
+            # image2 = image2[None].cuda()
+            image1 = image1[None]
+            image2 = image2[None]
 
             padder = InputPadder(image1.shape)
             image1, image2 = padder.pad(image1, image2)
@@ -169,19 +167,20 @@ def validate_spring(model, iters=32, max_its=-1):
             flow_low, flow_pr = model(image1, image2, iters=iters, test_mode=True)
             flow = padder.unpad(flow_pr[0]).cpu()
 
-            epe = torch.sum((flow - flow_gt)**2, dim=0).sqrt()
+            epe = torch.sum((flow - flow_gt) ** 2, dim=0).sqrt()
             epe_list.append(epe.view(-1).numpy())
 
         epe_all = np.concatenate(epe_list)
         epe = np.mean(epe_all)
-        px1 = np.mean(epe_all<1)
-        px3 = np.mean(epe_all<3)
-        px5 = np.mean(epe_all<5)
+        px1 = np.mean(epe_all < 1)
+        px3 = np.mean(epe_all < 3)
+        px5 = np.mean(epe_all < 5)
 
         print("Validation (%s) EPE: %f, 1px: %f, 3px: %f, 5px: %f" % (dstype, epe, px1, px3, px5))
         results[dstype] = np.mean(epe_list)
 
     return results
+
 
 @torch.no_grad()
 def validate_kitti(model, iters=24):
@@ -201,14 +200,14 @@ def validate_kitti(model, iters=24):
         flow_low, flow_pr = model(image1, image2, iters=iters, test_mode=True)
         flow = padder.unpad(flow_pr[0]).cpu()
 
-        epe = torch.sum((flow - flow_gt)**2, dim=0).sqrt()
-        mag = torch.sum(flow_gt**2, dim=0).sqrt()
+        epe = torch.sum((flow - flow_gt) ** 2, dim=0).sqrt()
+        mag = torch.sum(flow_gt ** 2, dim=0).sqrt()
 
         epe = epe.view(-1)
         mag = mag.view(-1)
         val = valid_gt.view(-1) >= 0.5
 
-        out = ((epe > 3.0) & ((epe/mag) > 0.05)).float()
+        out = ((epe > 3.0) & ((epe / mag) > 0.05)).float()
         epe_list.append(epe[val].mean().item())
         out_list.append(out[val].cpu().numpy())
 
@@ -232,10 +231,11 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     model = torch.nn.DataParallel(RAFT(args))
-    model.load_state_dict(torch.load(args.model))
+    model.load_state_dict(torch.load(args.model, map_location=torch.device('cpu')))
+    # model.load_state_dict(torch.load(args.model))
 
-    model.cuda()
-    # model.eval()
+    # model.cuda()
+    model.eval()
 
     # create_sintel_submission(model.module, warm_start=True)
     # create_kitti_submission(model.module)
