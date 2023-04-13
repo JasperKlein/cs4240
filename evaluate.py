@@ -137,7 +137,7 @@ def validate_sintel(model, iters=32, max_its=-1):
 
 
 @torch.no_grad()
-def validate_spring(model, iters=32, max_its=-1):
+def validate_spring(model, iters=32, max_its=-1, use_cpu=False):
     """ Peform validation using the Spring (train) split """
     model.eval()
     results = {}
@@ -156,10 +156,12 @@ def validate_spring(model, iters=32, max_its=-1):
             if val_id % 25 == 0:
                 print(f"It {val_id} of {max_its}")
             image1, image2, flow_gt, _ = val_dataset[val_id]
-            # image1 = image1[None].cuda()
-            # image2 = image2[None].cuda()
-            image1 = image1[None]
-            image2 = image2[None]
+            if use_cpu:
+                image1 = image1[None]
+                image2 = image2[None]
+            else:
+                image1 = image1[None].cuda()
+                image2 = image2[None].cuda()
 
             padder = InputPadder(image1.shape)
             image1, image2 = padder.pad(image1, image2)
@@ -228,14 +230,18 @@ if __name__ == '__main__':
     parser.add_argument('--small', action='store_true', help='use small model')
     parser.add_argument('--mixed_precision', action='store_true', help='use mixed precision')
     parser.add_argument('--alternate_corr', action='store_true', help='use efficent correlation implementation')
+    parser.add_argument('--usecpu', action='store_true', help='use cpu instead of GPU')
     args = parser.parse_args()
 
     model = torch.nn.DataParallel(RAFT(args))
-    model.load_state_dict(torch.load(args.model, map_location=torch.device('cpu')))
+    if args.usecpu:
+        model.load_state_dict(torch.load(args.model, map_location=torch.device('cpu')))
+        model.eval()
+    else:
+        model.load_state_dict(torch.load(args.model))
+        model.cuda()
     # model.load_state_dict(torch.load(args.model))
 
-    # model.cuda()
-    model.eval()
 
     # create_sintel_submission(model.module, warm_start=True)
     # create_kitti_submission(model.module)
@@ -251,7 +257,7 @@ if __name__ == '__main__':
             validate_kitti(model.module)
 
         elif args.dataset == 'spring':
-            validate_spring(model.module)
+            validate_spring(model.module, use_cpu=args.usecpu)
 
         elif args.dataset == 'fullbenchmark':
             validate_chairs(model.module)
