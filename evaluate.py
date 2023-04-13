@@ -14,7 +14,7 @@ import datasets
 from utils import flow_viz
 from utils import frame_utils
 
-from raft import RAFT
+from core.raft import RAFT
 from utils.utils import InputPadder, forward_interpolate
 
 
