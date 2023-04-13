@@ -61,10 +61,16 @@ class FlowDataset(data.Dataset):
         img1 = frame_utils.read_gen(self.image_list[index][0])
         img2 = frame_utils.read_gen(self.image_list[index][1])
 
-        print(flow)
-        flow = np.array(flow).astype(np.float32)
+        if self.flo5:
+            flow = flow
+        else:
+            flow = np.array(flow).astype(np.float32)
         img1 = np.array(img1).astype(np.uint8)
         img2 = np.array(img2).astype(np.uint8)
+
+        # print(flow.shape)
+        # print(img1.shape)
+        # print(img2.shape)
 
         # grayscale images
         if len(img1.shape) == 2:

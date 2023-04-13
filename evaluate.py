@@ -169,15 +169,27 @@ def validate_spring(model, iters=32, max_its=-1, use_cpu=False):
             flow_low, flow_pr = model(image1, image2, iters=iters, test_mode=True)
             flow = padder.unpad(flow_pr[0]).cpu()
 
+            flow_gt = flow_gt.unsqueeze(dim=0)
+            flow_gt = F.interpolate(flow_gt, scale_factor=0.5)
+            flow_gt = flow_gt.squeeze(dim=0)
+
+            # print(flow.shape)
+            # print(flow_gt.shape)
+
             epe = torch.sum((flow - flow_gt) ** 2, dim=0).sqrt()
             epe_list.append(epe.view(-1).numpy())
 
         epe_all = np.concatenate(epe_list)
-        epe = np.mean(epe_all)
+        # epe = np.mean(epe_all)
+        epe = np.nanmean(epe_all)
         px1 = np.mean(epe_all < 1)
         px3 = np.mean(epe_all < 3)
         px5 = np.mean(epe_all < 5)
 
+        # print(epe)
+        # print(epe_all)
+        # print(np.count_nonzero(np.isnan(epe_all)))
+        # print(np.count_nonzero(~np.isnan(epe_all)))
         print("Validation (%s) EPE: %f, 1px: %f, 3px: %f, 5px: %f" % (dstype, epe, px1, px3, px5))
         results[dstype] = np.mean(epe_list)
 
@@ -257,7 +269,7 @@ if __name__ == '__main__':
             validate_kitti(model.module)
 
         elif args.dataset == 'spring':
-            validate_spring(model.module, use_cpu=args.usecpu)
+            validate_spring(model.module, use_cpu=args.usecpu, max_its=25)
 
         elif args.dataset == 'fullbenchmark':
             validate_chairs(model.module)

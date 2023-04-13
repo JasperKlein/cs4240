@@ -4,12 +4,34 @@ from os.path import *
 import re
 
 import cv2
+import h5py
 
 cv2.setNumThreads(0)
 cv2.ocl.setUseOpenCL(False)
 
 TAG_CHAR = np.array([202021.25], np.float32)
 
+def readFlow5(fn):
+    with h5py.File(fn, "r") as f:
+        # magic = h5py.File(f, np.float32, count=1)
+        # if 202021.25 != magic:
+        if False:
+            print('Magic number incorrect flo5. Invalid .flo5 file')
+            return None
+        else:
+            # print(f.keys())
+            # print(f['flow'])
+            return f['flow'][()]
+            # w = np.fromfile(f, np.int32, count=1)
+            # h = np.fromfile(f, np.int32, count=1)
+            # w = f.get('flow')
+            # h = f.get('flow')
+
+            # print 'Reading %d x %d flo file\n' % (w, h)
+            # data = np.fromfile(f, np.float32, count=2 * int(w) * int(h))
+            # Reshape data into 3D array (columns, rows, bands)
+            # The reshape here is for visualization, the original code is (w,h,2)
+            # return np.resize(data, (int(h), int(w), 2))
 
 def readFlow(fn):
     """ Read .flo file in Middlebury format"""
@@ -18,10 +40,13 @@ def readFlow(fn):
 
     # WARNING: this will work on little-endian architectures (eg Intel x86) only!
     # print 'fn = %s'%(fn)
+    if fn.endswith('.flo5'):
+      return readFlow5(fn)
+
     with open(fn, 'rb') as f:
         magic = np.fromfile(f, np.float32, count=1)
-        # if 202021.25 != magic:
-        if False:
+        if 202021.25 != magic:
+        # if False:
             print('Magic number incorrect. Invalid .flo file')
             return None
         else:
@@ -127,7 +152,7 @@ def writeFlowKITTI(filename, uv):
 
 
 def read_gen(file_name, pil=False):
-    print(file_name)
+    # print(file_name)
     ext = splitext(file_name)[-1]
     if ext == '.png' or ext == '.jpeg' or ext == '.ppm' or ext == '.jpg':
         return Image.open(file_name)
@@ -136,7 +161,8 @@ def read_gen(file_name, pil=False):
     elif ext == '.flo':
         return readFlow(file_name).astype(np.float32)
     elif ext == '.flo5':
-        return readFlow(file_name).astype(np.float32)
+        # return readFlow5(file_name).astype(np.float32)
+        return readFlow5(file_name)
     elif ext == '.pfm':
         flow = readPFM(file_name).astype(np.float32)
         if len(flow.shape) == 2:
