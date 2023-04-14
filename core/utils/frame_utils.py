@@ -21,7 +21,9 @@ def readFlow5(fn):
         else:
             # print(f.keys())
             # print(f['flow'])
-            return f['flow'][()]
+            res = f['flow'][()]
+            print(f"Flo5 shape: {res.shape}")
+            return res
             # w = np.fromfile(f, np.int32, count=1)
             # h = np.fromfile(f, np.int32, count=1)
             # w = f.get('flow')
@@ -56,7 +58,9 @@ def readFlow(fn):
             data = np.fromfile(f, np.float32, count=2 * int(w) * int(h))
             # Reshape data into 3D array (columns, rows, bands)
             # The reshape here is for visualization, the original code is (w,h,2)
-            return np.resize(data, (int(h), int(w), 2))
+            res = np.resize(data, (int(h), int(w), 2))
+            print(f"Flo shape: {res.shape}")
+            return res
 
 
 def readPFM(file):
