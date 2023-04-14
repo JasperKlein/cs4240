@@ -180,8 +180,8 @@ def validate_spring(model, iters=32, max_its=-1, use_cpu=False):
             epe_list.append(epe.view(-1).numpy())
 
         epe_all = np.concatenate(epe_list)
-        # epe = np.mean(epe_all)
-        epe = np.nanmean(epe_all)
+        epe = np.mean(epe_all)
+        epe_nan = np.nanmean(epe_all)
         px1 = np.mean(epe_all < 1)
         px3 = np.mean(epe_all < 3)
         px5 = np.mean(epe_all < 5)
@@ -190,7 +190,7 @@ def validate_spring(model, iters=32, max_its=-1, use_cpu=False):
         # print(epe_all)
         # print(np.count_nonzero(np.isnan(epe_all)))
         # print(np.count_nonzero(~np.isnan(epe_all)))
-        print("Validation (%s) EPE: %f, 1px: %f, 3px: %f, 5px: %f" % (dstype, epe, px1, px3, px5))
+        print("Validation (%s) EPE: %f, EPE_nan: %f, 1px: %f, 3px: %f, 5px: %f" % (dstype, epe, epe_nan, px1, px3, px5))
         results[dstype] = np.mean(epe_list)
 
     return results
@@ -257,6 +257,7 @@ if __name__ == '__main__':
 
     # create_sintel_submission(model.module, warm_start=True)
     # create_kitti_submission(model.module)
+    print(f"Validating model: {args.model} on validation set {args.dataset}")
 
     with torch.no_grad():
         if args.dataset == 'chairs':
@@ -269,7 +270,7 @@ if __name__ == '__main__':
             validate_kitti(model.module)
 
         elif args.dataset == 'spring':
-            validate_spring(model.module, use_cpu=args.usecpu, max_its=25)
+            validate_spring(model.module, use_cpu=args.usecpu)
 
         elif args.dataset == 'fullbenchmark':
             validate_chairs(model.module)

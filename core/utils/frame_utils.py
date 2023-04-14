@@ -22,7 +22,7 @@ def readFlow5(fn):
             # print(f.keys())
             # print(f['flow'])
             res = f['flow'][()]
-            print(f"Flo5 shape: {res.shape}")
+            # print(f"Flo5 shape: {res.shape}")
             return res
             # w = np.fromfile(f, np.int32, count=1)
             # h = np.fromfile(f, np.int32, count=1)
@@ -59,7 +59,7 @@ def readFlow(fn):
             # Reshape data into 3D array (columns, rows, bands)
             # The reshape here is for visualization, the original code is (w,h,2)
             res = np.resize(data, (int(h), int(w), 2))
-            print(f"Flo shape: {res.shape}")
+            # print(f"Flo shape: {res.shape}")
             return res
 
 
