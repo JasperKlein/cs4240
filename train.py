@@ -1,5 +1,8 @@
 from __future__ import print_function, division
 import sys
+
+# from core.raft import RAFTPAR
+
 sys.path.append('core')
 
 import argparse
@@ -16,6 +19,7 @@ import torch.nn.functional as F
 
 from torch.utils.data import DataLoader
 from raft import RAFT
+from raft import RAFTPAR
 import evaluate
 import datasets
 
@@ -191,6 +195,68 @@ def benchmark(args):
     print(start.elapsed_time(end))
     logger.close()
 
+def benchmark(args):
+
+    if args.bmpar:
+        model = nn.DataParallel(RAFTPAR(args), device_ids=args.gpus)
+    else:
+        model = nn.DataParallel(RAFT(args), device_ids=args.gpus)
+    print("Parameter Count: %d" % count_parameters(model))
+
+    if args.restore_ckpt is not None:
+        model.load_state_dict(torch.load(args.restore_ckpt), strict=False)
+
+    model.cuda()
+    model.train()
+
+    if args.stage != 'chairs':
+        model.module.freeze_bn()
+
+    train_loader = datasets.fetch_dataloader(args)
+    optimizer, scheduler = fetch_optimizer(args, model)
+
+    total_steps = 0
+    scaler = GradScaler(enabled=args.mixed_precision)
+    logger = Logger(model, scheduler)
+
+    add_noise = True
+
+    should_keep_training = True
+    start = torch.cuda.Event(enable_timing=True)
+    end = torch.cuda.Event(enable_timing=True)
+
+    start.record()
+    while should_keep_training:
+
+        for i_batch, data_blob in enumerate(train_loader):
+            optimizer.zero_grad()
+            image1, image2, flow, valid = [x.cuda() for x in data_blob]
+
+            if args.add_noise:
+                stdv = np.random.uniform(0.0, 5.0)
+                image1 = (image1 + stdv * torch.randn(*image1.shape).cuda()).clamp(0.0, 255.0)
+                image2 = (image2 + stdv * torch.randn(*image2.shape).cuda()).clamp(0.0, 255.0)
+
+            flow_predictions = model(image1, image2, iters=args.iters)
+
+            loss, metrics = sequence_loss(flow_predictions, flow, valid, args.gamma)
+            scaler.scale(loss).backward()
+            scaler.unscale_(optimizer)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
+
+            scaler.step(optimizer)
+            scheduler.step()
+            scaler.update()
+
+            if total_steps > args.num_steps:
+                end.record()
+                should_keep_training = False
+                break
+
+    torch.cuda.synchronize()
+    print(start.elapsed_time(end))
+    logger.close()
+
 def train(args):
 
     model = nn.DataParallel(RAFT(args), device_ids=args.gpus)
@@ -296,6 +362,7 @@ if __name__ == '__main__':
     parser.add_argument('--add_noise', action='store_true')
 
     parser.add_argument('--timebm', action='store_true', help='Run benchmark for training time')
+    parser.add_argument('--bmpar', action='store_true', help='Run benchmark for parallel training time')
     parser.add_argument('--bmreps', type=int, default=3)
 
     args = parser.parse_args()
