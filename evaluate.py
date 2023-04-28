@@ -112,8 +112,6 @@ def validate_sintel(model, iters=32, max_its=-1):
             image1, image2, flow_gt, _ = val_dataset[val_id]
             image1 = image1[None].cuda()
             image2 = image2[None].cuda()
-            # image1 = image1[None]
-            # image2 = image2[None]
 
             padder = InputPadder(image1.shape)
             image1, image2 = padder.pad(image1, image2)
@@ -142,8 +140,6 @@ def validate_spring(model, iters=32, max_its=-1, use_cpu=False):
     model.eval()
     results = {}
 
-    # @Luuk, spring heeft dus maar een enkele set, tenzij we left en right willen doen, in dat geval zou je hier bijna
-    # bijna niets meer hoeven aanpassen
     for dstype in ['left']:
         val_dataset = datasets.EvalSpring(split='training', dstype=dstype)
         if max_its < 0:
@@ -172,9 +168,6 @@ def validate_spring(model, iters=32, max_its=-1, use_cpu=False):
             flow_gt = flow_gt.unsqueeze(dim=0)
             flow_gt = F.interpolate(flow_gt, scale_factor=0.5)
             flow_gt = flow_gt.squeeze(dim=0)
-
-            # print(flow.shape)
-            # print(flow_gt.shape)
 
             epe = torch.sum((flow - flow_gt) ** 2, dim=0).sqrt()
             epe_list.append(epe.view(-1).numpy())

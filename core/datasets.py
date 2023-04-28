@@ -130,14 +130,10 @@ class MpiSintel(FlowDataset):
 
 
 class EvalSpring(FlowDataset):
+    # Load the spring dataset, currently fixed on only loading the left parts of the stereoscopic images and the
+    # forward flows.
     def __init__(self, aug_params=None, split='training', root='datasets/spring/train', dstype='left'):
         super(EvalSpring, self).__init__(aug_params, flo5=True, sparse=False)
-        # @Luuk, De spring dataset lijkt dus veel op Sintel, alleen heeft sintel voor alle type input data
-        # een map met alles scenes erin, en heeft Spring een map voor elke scene met daarin mapjes voor alle type input
-        # data. Als je dit hier dus aanpast zou het direct moeten werken (verwacht) ik.
-
-        # if split == 'test':
-        # self.is_test = True
 
         for scene in os.listdir(root):
             image_list = sorted(glob(osp.join(root, scene, 'frame_left', '*.png')))
@@ -262,4 +258,3 @@ def fetch_dataloader(args, TRAIN_DS='C+T+K+S+H'):
 
     print('Training with %d image pairs' % len(train_dataset))
     return train_loader
-
