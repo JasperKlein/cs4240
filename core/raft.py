@@ -270,11 +270,14 @@ class RAFTPAR(nn.Module):
             flow_list.append(flow)
             up_mask_list.append(up_mask)
 
-        up_mask_stack = torch.cat(up_mask_list, dim=0)
         flow_stack = torch.cat(flow_list, dim=0)
+        try:
+          up_mask_stack = torch.cat(up_mask_list, dim=0)
+        except:
+          up_mask_stack = None
 
             # upsample predictions
-        if up_mask is None:
+        if up_mask_stack is None:
             flow_up = upflow8(flow_stack)
         else:
             flow_up = self.upsample_flow(flow_stack, up_mask_stack)

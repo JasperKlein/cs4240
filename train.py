@@ -140,8 +140,10 @@ class Logger:
 def benchmark(args):
 
     if args.bmpar:
+        print("Using parallel RAFT")
         model = nn.DataParallel(RAFTPAR(args), device_ids=args.gpus)
     else:
+        print("Using default RAFT")
         model = nn.DataParallel(RAFT(args), device_ids=args.gpus)
     print("Parameter Count: %d" % count_parameters(model))
 
@@ -189,6 +191,11 @@ def benchmark(args):
             scaler.step(optimizer)
             scheduler.step()
             scaler.update()
+            
+            total_steps += 1
+
+            if total_steps % 25 == 0:
+              print(f"Step {total_steps} of {args.num_steps}")
 
             if total_steps > args.num_steps:
                 end.record()
@@ -197,7 +204,6 @@ def benchmark(args):
 
     torch.cuda.synchronize()
     print(start.elapsed_time(end))
-    logger.close()
 
 def train(args):
 
@@ -269,6 +275,9 @@ def train(args):
             
             total_steps += 1
 
+            if total_steps % 25 == 0:
+              print(f"Step {total_steps} of {args.num_steps}")
+
             if total_steps > args.num_steps:
                 should_keep_training = False
                 break
@@ -313,7 +322,9 @@ if __name__ == '__main__':
     np.random.seed(1234)
 
     if args.timebm:
-        benchmark(args)
+        for i in range(0, args.bmreps):
+          print(f"Running benchmark: {i} with parallel set to {args.bmpar} and {args.num_steps} steps")
+          benchmark(args)
     else:
         if not os.path.isdir('checkpoints'):
             os.mkdir('checkpoints')
